@@ -29,13 +29,13 @@ typedef enum {
   HRPWM_CHANNEL_2       // Channel 2 output (complementary)
 } hrpwm_channel_t;
 
-void configure_hrpwm_gpio(void);
+void configure_hrpwm_gpio(hrpwm_timer_t timer);
 void hrpwm_init(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, uint32_t frequencyHz, float dutyPercent, uint16_t deadtimeNs);
 void hrpwm_set_duty(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, float dutyPercent);
 void hrpwm_start(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer);
 void hrpwm_stop(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer);
 void hrpwm_set_frequency(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, uint32_t frequencyHz);
-void hrpwm_set_phase(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, float phasePercent);
+void hrpwm_set_phase_degrees(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, float phaseDegrees);
 void hrpwm_set_deadtime(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, uint16_t deadtimeNs);
 
 #ifdef __cplusplus

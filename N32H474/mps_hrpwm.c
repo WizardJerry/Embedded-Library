@@ -20,6 +20,8 @@ static hrpwm_config_t hrpwmConfigs[6] = {{0}};  // Timer A-F
 
 static uint32_t get_shrtim_timer(hrpwm_timer_t timer);
 static uint32_t get_shrtim_output(hrpwm_timer_t timer, hrpwm_channel_t channel);
+static uint32_t calculate_frequency_parameters(uint32_t frequencyHz, uint32_t* prescalerMultiplier, uint32_t* shrtimPrescaler);
+static uint32_t calculate_duty_compare_value(float dutyPercent, uint32_t period);
 
 /**
  * @brief Calculate frequency parameters (prescaler and period)
@@ -76,33 +78,108 @@ static uint32_t calculate_duty_compare_value(float dutyPercent, uint32_t period)
 }
 
 /**
- * @brief Configure GPIO pins for SHRTIM high-resolution PWM complementary outputs
+ * @brief Configure GPIO pins for SHRTIM complementary PWM outputs (auto-configuration by timer)
  * 
- * This function sets up GPIO pins for SHRTIM Timer D complementary PWM operation.
- * It configures two pins on GPIOB for dual-channel complementary PWM output:
- * - PB14: TD1 (Timer D Channel 1) - High-side output for upper switch control
- * - PB15: TD2 (Timer D Channel 2) - Low-side output for lower switch control (complementary)
+ * This function automatically configures the correct GPIO pins and alternate function
+ * based on the SHRTIM timer selection. Pin mapping:
+ * 
+ * @param timer: SHRTIM timer selection
+ *   - HRPWM_TIMER_A: PA8/PA9,   AF6
+ *   - HRPWM_TIMER_B: PA10/PA11, AF12
+ *   - HRPWM_TIMER_C: PB12/PB13, AF10
+ *   - HRPWM_TIMER_D: PB14/PB15, AF10
+ *   - HRPWM_TIMER_E: PC8/PC9,   AF11
+ *   - HRPWM_TIMER_F: PC6/PC7,   AF11
+ * 
+ * Example:
+ * @code
+ * configure_hrpwm_gpio(HRPWM_TIMER_D);  // Auto-configures PB14/PB15 with AF10
+ * @endcode
  */
- void configure_hrpwm_gpio(GPIOxA, pinA , GPIOxB, pinB)
- {
-   GPIO_InitType GPIO_InitStructure;
-   
-   /* Enable GPIOB clock */
-   RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_GPIOB, ENABLE);
-   
-   /* Initialize GPIO structure */
-   GPIO_InitStruct(&GPIO_InitStructure);
-   
-   /* Configure GPIO for SHRTIM outputs */
-   GPIO_InitStructure.GPIO_Mode = GPIO_MODE_AF_PP;        // Alternate function push-pull
-   GPIO_InitStructure.GPIO_Slew_Rate = GPIO_SLEW_RATE_FAST;  // Fast slew rate for PWM
-   GPIO_InitStructure.GPIO_Pull = GPIO_PULL_UP;           // Pull-up for safety
-   GPIO_InitStructure.GPIO_Alternate = GPIO_AF10;        // SHRTIM alternate function
-   GPIO_InitStructure.Pin = GPIO_PIN_14 | GPIO_PIN_15;   // PB14(TD1), PB15(TD2)
-   
-   /* Apply configuration */
-   GPIO_InitPeripheral(GPIOB, &GPIO_InitStructure);
- }
+void configure_hrpwm_gpio(hrpwm_timer_t timer)
+{
+    GPIO_InitType GPIO_InitStructure;
+    GPIO_Module* gpio_port1 = NULL;
+    GPIO_Module* gpio_port2 = NULL;
+    uint16_t gpio_pin1 = 0;
+    uint16_t gpio_pin2 = 0; 
+    uint8_t af_function = 0;
+    
+    /* Determine GPIO configuration based on timer */
+    switch (timer) {
+        case HRPWM_TIMER_A:  // PA8/PA9, AF6
+            gpio_port1 = GPIOA;
+            gpio_port2 = GPIOA;
+            gpio_pin1 = GPIO_PIN_8;
+            gpio_pin2 = GPIO_PIN_9;
+            af_function = GPIO_AF6;
+            RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_GPIOA, ENABLE);
+            break;
+            
+        case HRPWM_TIMER_B:  // PA10/PA11, AF12
+            gpio_port1 = GPIOA;
+            gpio_port2 = GPIOA;
+            gpio_pin1 = GPIO_PIN_10;
+            gpio_pin2 = GPIO_PIN_11;
+            af_function = GPIO_AF12;
+            RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_GPIOA, ENABLE);
+            break;
+            
+        case HRPWM_TIMER_C:  // PB12/PB13, AF10
+            gpio_port1 = GPIOB;
+            gpio_port2 = GPIOB;
+            gpio_pin1 = GPIO_PIN_12;
+            gpio_pin2 = GPIO_PIN_13;
+            af_function = GPIO_AF10;
+            RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_GPIOB, ENABLE);
+            break;
+            
+        case HRPWM_TIMER_D:  // PB14/PB15, AF10
+            gpio_port1 = GPIOB;
+            gpio_port2 = GPIOB;
+            gpio_pin1 = GPIO_PIN_14;
+            gpio_pin2 = GPIO_PIN_15;
+            af_function = GPIO_AF10;
+            RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_GPIOB, ENABLE);
+            break;
+            
+        case HRPWM_TIMER_E:  // PC8/PC9, AF11
+            gpio_port1 = GPIOC;
+            gpio_port2 = GPIOC;
+            gpio_pin1 = GPIO_PIN_8;
+            gpio_pin2 = GPIO_PIN_9;
+            af_function = GPIO_AF11;
+            RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_GPIOC, ENABLE);
+            break;
+            
+        case HRPWM_TIMER_F:  // PC6/PC7, AF11
+            gpio_port1 = GPIOC;
+            gpio_port2 = GPIOC;
+            gpio_pin1 = GPIO_PIN_6;
+            gpio_pin2 = GPIO_PIN_7;
+            af_function = GPIO_AF11;
+            RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_GPIOC, ENABLE);
+            break;
+            
+        default:
+            return; // Invalid timer
+    }
+    
+    /* Initialize GPIO structure */
+    GPIO_InitStruct(&GPIO_InitStructure);
+    GPIO_InitStructure.GPIO_Mode = GPIO_MODE_AF_PP;          // Alternate function push-pull
+    GPIO_InitStructure.GPIO_Slew_Rate = GPIO_SLEW_RATE_FAST; // Fast slew rate for PWM
+    GPIO_InitStructure.GPIO_Pull = GPIO_PULL_UP;             // Pull-up for safety
+    GPIO_InitStructure.GPIO_Alternate = af_function;         // SHRTIM alternate function
+    
+    /* Configure first pin (Channel 1) */
+    GPIO_InitStructure.Pin = gpio_pin1;
+    GPIO_InitPeripheral(gpio_port1, &GPIO_InitStructure);
+    
+    /* Configure second pin (Channel 2) */
+    GPIO_InitStructure.Pin = gpio_pin2;
+    GPIO_InitPeripheral(gpio_port2, &GPIO_InitStructure);
+}
 
 
 /**
@@ -126,7 +203,7 @@ static uint32_t calculate_duty_compare_value(float dutyPercent, uint32_t period)
    uint32_t period;
    uint32_t prescalerMultiplier;
    uint32_t shrtimPrescaler;
-   
+   configure_hrpwm_gpio(timer);
      /* Calculate period and prescaler for desired frequency */
   period = calculate_frequency_parameters(frequencyHz, &prescalerMultiplier, &shrtimPrescaler);
    
@@ -155,7 +232,7 @@ static uint32_t calculate_duty_compare_value(float dutyPercent, uint32_t period)
    
    
      /* Configure SHRTIM timer - basic settings */
-  SHRTIM_TIM_SetPrescaler(SHRTIMx, shrtimTimer, shrtimPrescaler);
+   SHRTIM_TIM_SetPrescaler(SHRTIMx, shrtimTimer, shrtimPrescaler);
    SHRTIM_TIM_SetCounterMode(SHRTIMx, shrtimTimer, SHRTIM_MODE_CONTINUOUS);
    SHRTIM_TIM_SetPeriod(SHRTIMx, shrtimTimer, period);
    
@@ -328,33 +405,51 @@ void hrpwm_set_frequency(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, uint32_t f
 }
 
 
+
 /**
- * @brief Set complementary PWM phase shift 
+ * @brief Set PWM timer phase in degrees for multi-phase applications
  * @param SHRTIMx: SHRTIM module (e.g., SHRTIM1)
- * @param timer: HRPWM timer selection
- * @param phasePercent: Phase shift in percent (0.0-100.0, supports decimal like 10.5)
- *   - High precision: 0.1% = 0.36° @ 100kHz, 0.036° @ 50kHz
- *   - Shifts both channels together maintaining complementary relationship
+ * @param timer: HRPWM timer selection (HRPWM_TIMER_A to HRPWM_TIMER_F)
+ * @param phaseDegrees: Phase shift in degrees (0.0-360.0, supports decimal like 120.5)
+ *   - 0°: No phase shift (reference)
+ *   - 120°: Typical for 3-phase motor control (Timer A=0°, B=120°, C=240°)
+ *   - 90°: Typical for 4-phase applications
+ *   - High precision: 0.1° resolution at all frequencies
+ * 
+ * @note This function sets the absolute phase of the timer relative to period start
+ * @note Use this for multi-phase applications like 3-phase motors, interleaved converters
+ * @note Both complementary channels (CH1/CH2) maintain their dead-time relationship
+ * 
+ * @example Multi-phase motor control:
+ *   hrpwm_set_phase_degrees(SHRTIM1, HRPWM_TIMER_A, 0.0f);    // Phase A: 0°
+ *   hrpwm_set_phase_degrees(SHRTIM1, HRPWM_TIMER_B, 120.0f);  // Phase B: 120°
+ *   hrpwm_set_phase_degrees(SHRTIM1, HRPWM_TIMER_C, 240.0f);  // Phase C: 240°
  */
-void hrpwm_set_phase(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, float phasePercent)
+void hrpwm_set_phase_degrees(SHRTIM_Module* SHRTIMx, hrpwm_timer_t timer, float phaseDegrees)
 {
   uint32_t shrtimTimer = get_shrtim_timer(timer);
   uint32_t period;
   uint32_t phaseOffset;
   uint32_t compareValueCh1, compareValueCh2;
+  float normalizedPhase;
   
   period = hrpwmConfigs[timer].period;
   
-  /* Validate and clamp phase percentage */
-  if (phasePercent > 100.0f) phasePercent = 100.0f;
-  if (phasePercent < 0.0f) phasePercent = 0.0f;
+  /* Normalize phase to 0-360° range */
+  normalizedPhase = phaseDegrees;
+  while (normalizedPhase >= 360.0f) {
+    normalizedPhase -= 360.0f;
+  }
+  while (normalizedPhase < 0.0f) {
+    normalizedPhase += 360.0f;
+  }
   
-  /* Calculate phase offset with high precision: Phase = (period * phasePercent) / 100 */
-  phaseOffset = (uint32_t)((phasePercent * (float)period) / 100.0f);
+  /* Calculate phase offset with high precision: Phase = (period * degrees) / 360 */
+  phaseOffset = (uint32_t)((normalizedPhase * (float)period) / 360.0f);
   
-  /* Get current duty cycle compare value and add phase offset for both channels */
+  /* Calculate new compare values based on current duty cycle + phase offset */
   compareValueCh1 = hrpwmConfigs[timer].compareValue + phaseOffset;
-  compareValueCh2 = hrpwmConfigs[timer].compareValue + phaseOffset;  // True complementary: both channels use same compare value
+  compareValueCh2 = hrpwmConfigs[timer].compareValue + phaseOffset;
   
   /* Wrap around if exceeds period */
   if (compareValueCh1 >= period) {

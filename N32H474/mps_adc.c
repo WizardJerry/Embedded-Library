@@ -2,6 +2,7 @@
 #include "n32h47x_48x_rcc.h"
 #include "n32h47x_48x_adc.h"
 #include "n32h47x_48x_gpio.h"
+#include "n32h47x_48x_dma.h"
 /**
  * @brief Configure GPIO pin for ADC input
  * 
@@ -60,7 +61,7 @@ void adc_gpio_config(GPIO_Module* GPIOx, uint16_t GpioPin)
  * @param continuous: true for continuous conversion, false for single
  * @param sampleTime: ADC sampling time (ADC_SAMP_TIME_CYCLES_1_5 to ADC_SAMP_TIME_CYCLES_601_5)
  */
-void adc_init(ADC_Module* ADCx, uint8_t ADC_Channel, GPIO_Module* GPIOx, uint16_t GPIO_Pin, adc_resolution_t resolution, bool continuous, uint8_t sampleTime)
+void adc_init_single_channel_scan(ADC_Module* ADCx, uint8_t ADC_Channel, GPIO_Module* GPIOx, uint16_t GPIO_Pin, adc_resolution_t resolution, bool continuous, uint8_t sampleTime)
 {
 
   adc_gpio_config(GPIOx, GPIO_Pin);
@@ -92,14 +93,7 @@ void adc_init(ADC_Module* ADCx, uint8_t ADC_Channel, GPIO_Module* GPIOx, uint16_
   ADC_InitStructure.ExtTrigSelect = ADC_EXT_TRIG_REG_CONV_SOFTWARE;
   ADC_InitStructure.DatAlign = ADC_DAT_ALIGN_R;
   ADC_InitStructure.ChsNumber = 1;
-  /* Set resolution based on user parameter */
-  switch (resolution) {
-    case ADC_RESOLUTION_6BIT:  ADC_InitStructure.Resolution = ADC_DATA_RES_6BIT; break;
-    case ADC_RESOLUTION_8BIT:  ADC_InitStructure.Resolution = ADC_DATA_RES_8BIT; break;
-    case ADC_RESOLUTION_10BIT: ADC_InitStructure.Resolution = ADC_DATA_RES_10BIT; break;
-    case ADC_RESOLUTION_12BIT: ADC_InitStructure.Resolution = ADC_DATA_RES_12BIT; break;
-    default: ADC_InitStructure.Resolution = ADC_DATA_RES_12BIT; break;
-  }
+  ADC_InitStructure.Resolution = resolution;
   ADC_Init(ADCx, &ADC_InitStructure);
   
   /* Enable ADC */
@@ -127,6 +121,126 @@ void adc_init(ADC_Module* ADCx, uint8_t ADC_Channel, GPIO_Module* GPIOx, uint16_
   }
 }
 
+/**
+ * @brief Initialize any ADC module for flexible multi-channel scanning mode
+ * 
+ * This function configures the specified ADC (ADC1/2/3/4) to scan any number of channels (2-16) in sequence.
+ * You can choose any combination of GPIO pins and ADC channels.
+ * Results are stored in the provided array via DMA in the same order as channel configuration.
+ * 
+ * @param ADCx: ADC peripheral (ADC1, ADC2, ADC3, or ADC4)
+ * @param channels: Array of channel configurations (GPIO port, pin, ADC channel)
+ * @param channelCount: Number of channels to scan (2-16)
+ * @param resolution: ADC resolution (6/8/10/12 bit)
+ * @param adcResults: Array to store ADC conversion results 
+ * @param continuous: true for continuous scanning, false for single scan
+ * 
+ * @note Maximum 16 channels supported by ADC hardware
+ * @note Results are stored in adcResults[] in the same order as channels[] array
+ * @note Different ADCs use different DMA channels automatically
+ * 
+ */
+void adc_init_multichannel_scan(ADC_Module* ADCx, adc_channel_config_t* channels, uint8_t channelCount, adc_resolution_t resolution, uint16_t* adcResults, bool continuous, uint8_t sampleTime)
+{
+  /* Configure GPIO pins for ADC inputs dynamically */
+  for (uint8_t i = 0; i < channelCount; i++) {
+    adc_gpio_config(channels[i].gpio_port, channels[i].gpio_pin);
+  }
+
+  /* Enable ADC and DMA clocks based on ADC module */
+  uint32_t DMA_CHx;
+  
+  if (ADCx == ADC1) {
+    RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_ADC1, ENABLE);
+    RCC_EnableAHBPeriphClk(RCC_AHB_PERIPHEN_DMA1, ENABLE);
+    DMA_CHx = (uint32_t)DMA1_CH1;
+  } 
+  else if (ADCx == ADC2) {
+    RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_ADC2, ENABLE);
+    RCC_EnableAHBPeriphClk(RCC_AHB_PERIPHEN_DMA1, ENABLE);
+    DMA_CHx = (uint32_t)DMA1_CH2;
+  }
+  else if (ADCx == ADC3) {
+    RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_ADC3, ENABLE);
+    RCC_EnableAHBPeriphClk(RCC_AHB_PERIPHEN_DMA2, ENABLE);
+    DMA_CHx = (uint32_t)DMA2_CH1;
+  }
+  else if (ADCx == ADC4) {
+    RCC_EnableAHB1PeriphClk(RCC_AHB_PERIPHEN_ADC4, ENABLE);
+    RCC_EnableAHBPeriphClk(RCC_AHB_PERIPHEN_DMA2, ENABLE);
+    DMA_CHx = (uint32_t)DMA2_CH2;
+  }
+
+  /* Configure ADC clock (common for all ADCs) */
+  ADC_ConfigClk(ADC_CTRL3_CKMOD_AHB, RCC_ADCHCLK_DIV16);
+  RCC_ConfigAdc1mClk(RCC_ADC1MCLK_SRC_HSE, RCC_ADC1MCLK_DIV8);
+  
+  
+  /* ADC configuration for multi-channel scanning */
+  ADC_InitType ADC_InitStructure;
+  ADC_InitStruct(&ADC_InitStructure);
+  
+  ADC_InitStructure.WorkMode       = ADC_WORKMODE_INDEPENDENT;   // Independent mode
+  ADC_InitStructure.MultiChEn      = ENABLE;                     // ✅ Enable multi-channel scanning
+  ADC_InitStructure.ContinueConvEn = continuous ? ENABLE : DISABLE; // Continuous or single scan
+  ADC_InitStructure.ExtTrigSelect  = ADC_EXT_TRIG_REG_CONV_SOFTWARE; // Software trigger
+  ADC_InitStructure.DatAlign       = ADC_DAT_ALIGN_R;           // Right-aligned data
+  ADC_InitStructure.ChsNumber      = channelCount;             // ✅ Dynamic channel count
+  ADC_InitStructure.Resolution     = resolution;                // ✅ User-specified resolution
+  
+  ADC_Init(ADCx, &ADC_InitStructure);
+  
+  /* Configure each channel in scan sequence dynamically */
+  for (uint8_t i = 0; i < channelCount; i++) {
+    ADC_ConfigRegularChannel(ADCx, channels[i].adc_channel, i + 1, sampleTime);
+  }
+  
+  /* Configure DMA for automatic data transfer */
+  DMA_InitType DMA_InitStructure;
+  DMA_DeInit((DMA_ChannelType*)DMA_CHx);
+  DMA_InitStructure.PeriphAddr     = (uint32_t)&ADCx->DAT;           // ADC data register
+  DMA_InitStructure.MemAddr        = (uint32_t)adcResults;          // Target array
+  DMA_InitStructure.Direction      = DMA_DIR_PERIPH_SRC;             // Peripheral to memory
+  DMA_InitStructure.BufSize        = channelCount;                  // ✅ Dynamic buffer size
+  DMA_InitStructure.PeriphInc      = DMA_PERIPH_INC_DISABLE;         // Peripheral address fixed
+  DMA_InitStructure.MemoryInc      = DMA_MEM_INC_ENABLE;             // Memory address increment
+  DMA_InitStructure.PeriphDataSize = DMA_PERIPH_DATA_WIDTH_HALFWORD; // 16-bit data
+  DMA_InitStructure.MemDataSize    = DMA_MEM_DATA_WIDTH_HALFWORD;    // 16-bit data
+  DMA_InitStructure.CircularMode   = continuous ? DMA_MODE_CIRCULAR : DMA_MODE_NORMAL; // Circular for continuous
+  DMA_InitStructure.Priority       = DMA_PRIORITY_HIGH;              // High priority
+  DMA_InitStructure.Mem2Mem        = DMA_M2M_DISABLE;               // Not memory-to-memory
+  
+  DMA_Init((DMA_ChannelType*)DMA_CHx, &DMA_InitStructure);
+  
+  /* Configure DMA request remap (CRITICAL!) */
+  if (ADCx == ADC1) {
+    DMA_RequestRemap(DMA_REMAP_ADC1, DMA1_CH1, ENABLE);
+  }
+  else if (ADCx == ADC2) {
+    DMA_RequestRemap(DMA_REMAP_ADC2, DMA1_CH2, ENABLE);
+  }
+  else if (ADCx == ADC3) {
+    DMA_RequestRemap(DMA_REMAP_ADC3, DMA2_CH1, ENABLE);
+  }
+  else if (ADCx == ADC4) {
+    DMA_RequestRemap(DMA_REMAP_ADC4, DMA2_CH2, ENABLE);
+  }
+  
+  DMA_EnableChannel((DMA_ChannelType*)DMA_CHx, ENABLE);
+  
+  /* Enable ADC DMA */
+  ADC_SetDMATransferMode(ADCx, ADC_MULTI_REG_DMA_EACH_ADC);
+  
+  /* Enable ADC */
+  ADC_Enable(ADCx, ENABLE);
+  
+  /* Wait for ADC Ready (recommended) */
+  while(ADC_GetFlagStatus(ADCx, ADC_FLAG_RDY) == RESET);
+  
+  /* ADC calibration (following official example) */
+  ADC_CalibrationOperation(ADCx, ADC_CALIBRATION_SINGLE_MODE);
+  while(ADC_GetCalibrationStatus(ADCx, ADC_CALIBRATION_SINGLE_MODE));
+}
 
 /**
  * @brief Read ADC value from pre-configured channel
@@ -174,27 +288,8 @@ void adc_stop(ADC_Module* ADCx)
 }
 
 
-/**
- * @brief ADC Test Function - Read voltage from PA0 pin
- * 
- * This function provides a simple test interface for ADC functionality.
- * It initializes ADC1, reads the voltage on PA0 pin, and returns the voltage value.
- * 
- * @return: Voltage value in mV (0-3300mV for 0-3.3V input)
- * 
- * @note: Test Pin: PA0 (ADC1_IN3)
- *        - Connect your test voltage to PA0 pin
- *        - Voltage range: 0V to 3.3V
- *        - Resolution: ~0.8mV (12-bit ADC)
- */
-uint16_t adc_test_voltage_pa0(void)
-{
-  /* Read ADC value from PA0 (ADC1_IN3) */
-  uint16_t adc_value = adc_read(ADC1);
-  
-  /* Convert ADC value to voltage (mV) */
-  /* Formula: voltage_mV = (adc_value * 3300) / 4095 */
-  uint32_t voltage_mv = ((uint32_t)adc_value * 3300) / 4095;
-  
-  return (uint16_t)voltage_mv;
-}
+
+
+
+
+
