@@ -15,40 +15,40 @@
 
 // PID controller structure
 typedef struct {
-  // PID parameters
-  float kp;                  // Proportional coefficient
-  float ki;                  // Integral coefficient
-  float kd;                  // Derivative coefficient
+    // PID parameters
+    float kp;                  // Proportional coefficient
+    float ki;                  // Integral coefficient
+    float kd;                  // Derivative coefficient
 
-  // Display parameters (original user input values)
-  float dispKp;              // Display proportional coefficient
-  float dispKi;              // Display integral coefficient
-  float dispKd;              // Display derivative coefficient
+    // Display parameters (original user input values)
+    float dispKp;              // Display proportional coefficient
+    float dispKi;              // Display integral coefficient
+    float dispKd;              // Display derivative coefficient
 
-  // Control parameters
-  float setpoint;            // Setpoint value
-  float input;               // Input value (feedback)
-  float output;              // Output value
-  float lastInput;           // Last input value
-  float outputSum;           // Integral term accumulation
+    // Control parameters
+    float setpoint;            // Setpoint value
+    float input;               // Input value (feedback)
+    float output;              // Output value
+    float lastInput;           // Last input value
+    float outputSum;           // Integral term accumulation
 
-  // Output limits
-  float outMin;              // Output minimum limit
-  float outMax;              // Output maximum limit
+    // Output limits
+    float outMin;              // Output minimum limit
+    float outMax;              // Output maximum limit
 
-  // Time parameters
-  float sampleTime;          // Sample time (seconds)
-  unsigned long lastTime;    // Last calculation time
+    // Time parameters
+    float sampleTime;          // Sample time (seconds)
+    unsigned long lastTime;    // Last calculation time
 
-  // Control mode
-  int mode;                  // Control mode: manual/automatic
-  int controllerDirection;   // Control direction: direct/reverse
-  int pOn;                   // Proportional term mode: error/measurement
-  int pOnE;                  // Proportional term on error flag
+    // Control mode
+    int mode;                  // Control mode: manual/automatic
+    int controllerDirection;   // Control direction: direct/reverse
+    int pOn;                   // Proportional term mode: error/measurement
+    int pOnE;                  // Proportional term on error flag
 
-  // Anti-windup
-  int inAuto;                // Automatic mode flag
-  int justEvaluated;         // Just evaluated flag
+    // Anti-windup
+    int inAuto;                // Automatic mode flag
+    int justEvaluated;         // Just evaluated flag
 
 } PidController_t;
 
