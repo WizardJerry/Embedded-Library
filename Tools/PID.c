@@ -2,10 +2,10 @@
 #include <math.h>
 
 // Internal function declarations
-static void pid_initialize(pid_controller_t *pid);
+static void pid_initialize(PidController_t *pid);
 
 
-void pid_init(pid_controller_t *pid, float kp, float ki, float kd, float sampleTime) {
+void pid_init(PidController_t *pid, float kp, float ki, float kd, float sampleTime) {
   pid->setpoint = 0.0f;
   pid->input = 0.0f;
   pid->output = 0.0f;
@@ -31,7 +31,7 @@ void pid_init(pid_controller_t *pid, float kp, float ki, float kd, float sampleT
 }
 
 
-float pid_compute(pid_controller_t *pid, float input, float setPoint) {
+float pid_compute(PidController_t *pid, float input, float setPoint) {
   if (!pid->inAuto) {
     return pid->output;  // 手动模式直接返回当前输出
   }
@@ -86,11 +86,11 @@ float pid_compute(pid_controller_t *pid, float input, float setPoint) {
 }
 
 
-void pid_set_tunings(pid_controller_t *pid, float kp, float ki, float kd) {
+void pid_set_tunings(PidController_t *pid, float kp, float ki, float kd) {
   pid_set_tunings_with_mode(pid, kp, ki, kd, pid->pOn);
 }
 
-void pid_set_tunings_with_mode(pid_controller_t *pid, float kp, float ki, float kd, int pOn) {
+void pid_set_tunings_with_mode(PidController_t *pid, float kp, float ki, float kd, int pOn) {
   if (kp < 0 || ki < 0 || kd < 0) {
     return;  // 参数不能为负
   }
@@ -120,7 +120,7 @@ void pid_set_tunings_with_mode(pid_controller_t *pid, float kp, float ki, float 
 }
 
 
-void pid_set_output_limits(pid_controller_t *pid, float min, float max) {
+void pid_set_output_limits(PidController_t *pid, float min, float max) {
   if (min >= max) {
     return;  // 下限必须小于上限
   }
@@ -146,7 +146,7 @@ void pid_set_output_limits(pid_controller_t *pid, float min, float max) {
 }
 
 
-void pid_set_mode(pid_controller_t *pid, int mode) {
+void pid_set_mode(PidController_t *pid, int mode) {
   int new_auto = (mode == PID_MODE_AUTOMATIC);
   
   // 如果模式没有改变，直接返回
@@ -162,7 +162,7 @@ void pid_set_mode(pid_controller_t *pid, int mode) {
   }
 }
 
-void pid_set_controller_direction(pid_controller_t *pid, int direction) {
+void pid_set_controller_direction(PidController_t *pid, int direction) {
   if (pid->inAuto && direction != pid->controllerDirection) {
     pid->kp = (0 - pid->kp);
     pid->ki = (0 - pid->ki);
@@ -172,7 +172,7 @@ void pid_set_controller_direction(pid_controller_t *pid, int direction) {
 }
 
 
-void pid_set_sample_time(pid_controller_t *pid, float sampleTime) {
+void pid_set_sample_time(PidController_t *pid, float sampleTime) {
   if (sampleTime > 0) {
     float ratio = sampleTime / pid->sampleTime;
     pid->ki *= ratio;
@@ -182,21 +182,21 @@ void pid_set_sample_time(pid_controller_t *pid, float sampleTime) {
 }
 
 
-void pid_reset(pid_controller_t *pid) {
+void pid_reset(PidController_t *pid) {
   pid->outputSum = 0.0f;
   pid->lastInput = pid->input;
   pid->justEvaluated = 0;
 }
 
 
-void pid_get_status(pid_controller_t *pid, float *error, float *integral, float *derivative) {
+void pid_get_status(PidController_t *pid, float *error, float *integral, float *derivative) {
   if (error) *error = pid->setpoint - pid->input;
   if (integral) *integral = pid->outputSum;
   if (derivative) *derivative = pid->input - pid->lastInput;
 }
 
 
-static void pid_initialize(pid_controller_t *pid) {
+static void pid_initialize(PidController_t *pid) {
   pid->outputSum = pid->output;
   
   if (pid->outputSum > pid->outMax) {

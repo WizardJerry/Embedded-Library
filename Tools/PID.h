@@ -1,6 +1,5 @@
-#ifndef HARDWARE_PERIPHERAL_PID_H_
-#define HARDWARE_PERIPHERAL_PID_H_
-
+#ifndef PID_H
+#define PID_H
 
 // PID control mode definitions
 #define PID_MODE_MANUAL    0    // Manual mode
@@ -51,22 +50,22 @@ typedef struct {
   int inAuto;                // Automatic mode flag
   int justEvaluated;         // Just evaluated flag
 
-} pid_controller_t;
+} PidController_t;
 
 
 // Basic PID functions
-void pid_init(pid_controller_t *pid, float kp, float ki, float kd, float sampleTime);
-float pid_compute(pid_controller_t *pid, float input, float setPoint);
+void pid_init(PidController_t *pid, float kp, float ki, float kd, float sampleTime);
+float pid_compute(PidController_t *pid, float input, float setPoint);
 
-void pid_set_tunings(pid_controller_t *pid, float kp, float ki, float kd);
-void pid_set_tunings_with_mode(pid_controller_t *pid, float kp, float ki, float kd, int pOn);
-void pid_set_output_limits(pid_controller_t *pid, float min, float max);
-void pid_set_mode(pid_controller_t *pid, int mode);
-void pid_set_controller_direction(pid_controller_t *pid, int direction);
-void pid_set_sample_time(pid_controller_t *pid, float sampleTime);
-void pid_reset(pid_controller_t *pid);
+void pid_set_tunings(PidController_t *pid, float kp, float ki, float kd);
+void pid_set_tunings_with_mode(PidController_t *pid, float kp, float ki, float kd, int pOn);
+void pid_set_output_limits(PidController_t *pid, float min, float max);
+void pid_set_mode(PidController_t *pid, int mode);
+void pid_set_controller_direction(PidController_t *pid, int direction);
+void pid_set_sample_time(PidController_t *pid, float sampleTime);
+void pid_reset(PidController_t *pid);
 
-void pid_get_status(pid_controller_t *pid, float *error, float *integral, float *derivative);
+void pid_get_status(PidController_t *pid, float *error, float *integral, float *derivative);
 
 
 #endif /* PID_H_ */
