@@ -87,3 +87,52 @@ void adc_start_voltage(bool startFlag){
 - 单个函数实现的有效代码通常不要超过 80 行，如果单个函数的代码过长，说明实现方式上大概率有优化空间
 
 - 使用判断语句实现功能时，最好不要超过 3 层的嵌套，嵌套层数过多会带来代码阅读和理解上的困难，循环语句同理
+
+
+# Git Commit 规范
+
+参考 [Angular](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-angular) 项目中的建议规范，将项目代码的commit分为三部分：
+```
+<type>(<scope>): <subject> // header
+<BLANK LINE>
+<body> // optional
+<BLANK LINE>
+<footer> // optional
+```
+
+## 详细解析
+### Header
+描述提交类型和简短说明。格式为：`<类型>(<作用域>): <主题>`(`<type>(<scope>): <subject>`)。
+
+**类型（Type）**： 必填，指明本次提交的目的，如 feat 表示新开发的功能（feature）、fix 表示修复 bug、refactor 表示代码重构等。
+**作用域（Scope）**： 可选，描述修改的影响范围，如模块名、功能名等，视项目不同而不同。
+**主题（Subject）**： 必填，是 commit 简明扼要的提交描述。长度建议不超过 50 个字符。
+
+> feat(pwm): add deadtime control
+
+### Body
+详细说明本次 commit 修改的内容。使用空行分隔段落，保持可读性。
+
+> - 增加xxx功能
+> - 实现回调处理
+> - 添加xxx函数
+### Footer
+主要用于关联 Issue、描述破坏性变更（BREAKING CHANGE）等。
+
+> Closes #889
+> BREAKING CHANGE: pwm接口已更改，需使用xxxx
+
+## Header List
+|**提交类型**	|**描述**	|**示例**|
+|:-----:|:-----|:-----|
+|feat	|新功能增加（feature）	|feat: add user login feature|
+|fix	|修复BUG	|fix: correct user authentication|
+|refactor	|代码重构，对已有功能的实现方式进行变更	|refactor: simplify user validation logic|
+|docs	|文档/注释	|docs: update API documentation|
+|style	|更改代码风格，规范化代码	|style: format code with prettier|
+|test	|测试相关	|test: add unit tests for login feature|
+|build	|影响构建系统或外部依赖的更改（例如：gulp，broccoli，npm）	|build: update webpack config|
+|revert	|代码撤销修改	|revert: revert commit 12345abc|
+|ci	|持续集成的配置文件和脚本的变动（例如：Travis，Circle，BrowserStack，SauceLabs）	|ci: update Travis configuration|
+|chore	|依赖更新/脚手架配置修改等	|chore: upgrade React to the latest version|
+|perf	|性能优化	|perf: optimize virtual DOM diffing algorithm|
